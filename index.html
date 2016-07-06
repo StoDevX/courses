@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en-US" dir="ltr">
+<head>
+	<meta charset="utf-8" />
+	<title>St. Olaf Courses</title>
+	<style>
+
+	</style>
+</head>
+<body>
+	<div class='course-container'></div>
+	<script>
+		fetch('https://stodevx.github.io/course-data/info.json')
+			.then(r => r.json())
+			.then(info => {
+				let jsonFiles = info.files
+					.map(i => i.path)
+					.filter(path => path.endsWith('.json'))
+
+				return Promise.all(jsonFiles)
+			})
+			.then(files => {
+				console.time('fetched')
+				return Promise.all(files.map(f => fetch(`https://stodevx.github.io/course-data/${f}`).then(r => r.json())))
+			})
+			.then(courseArrays => {
+				console.timeEnd('fetched')
+				console.time('flattened')
+				return [].concat.apply([], courseArrays)
+			})
+			.then(courses => {
+				window.courses = courses
+				console.timeEnd('flattened')
+				console.time('elemented')
+				let itemClone = document.createElement('li')
+				itemClone.className = 'course'
+				let els = courses.map(c => {
+					let item = itemClone.cloneNode()
+					item.textContent = `${c.departments.join('/')} ${c.number}`
+					return item
+				})
+				console.timeEnd('elemented')
+				console.time('appended')
+				let ul = document.createElement('ul')
+				ul.className = 'course-list'
+				els.forEach(el => ul.appendChild(el))
+				console.timeEnd('appended')
+				console.time('really done')
+				let container = document.querySelector('.course-container')
+				container.appendChild(ul)
+				console.timeEnd('really done')
+			})
+			.catch(console.error.bind(console))
+	</script>
+</body>
+</html>
