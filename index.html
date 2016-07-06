@@ -46,11 +46,14 @@
 				ul.className = 'course-list'
 				els.forEach(el => ul.appendChild(el))
 				console.timeEnd('appended')
+				return ul
+			})
+			.then(ul => {
 				console.time('really done')
 				let container = document.querySelector('.course-container')
 				container.appendChild(ul)
-				console.timeEnd('really done')
 			})
+			.then(() => console.timeEnd('really done'))
 			.catch(console.error.bind(console))
 	</script>
 </body>
