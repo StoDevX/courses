@@ -10,8 +10,9 @@
 <body>
 	<div class='course-container'></div>
 	<script>
+		const baseUrl = 'https://rawgit.com/StoDevX/course-data/gh-pages'
 		const fetchJson = (...args) => fetch(...args).then(r => r.json())
-		fetchJson('https://stodevx.github.io/course-data/index.json')
+		fetchJson('${baseUrl}/index.json')
 			.then(info => {
 				let jsonFiles = info.files
 					.filter(({type}) => type === 'json')
@@ -21,7 +22,7 @@
 			})
 			.then(files => {
 				console.time('fetched')
-				return Promise.all(files.map(f => fetchJson(`https://stodevx.github.io/course-data/${f}`)))
+				return Promise.all(files.map(f => fetchJson(`${baseUrl}/${f}`)))
 			})
 			.then(courseArrays => {
 				console.timeEnd('fetched')
