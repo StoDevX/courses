@@ -10,7 +10,7 @@
 <body>
 	<div class='course-container'></div>
 	<script>
-		const baseUrl = 'https://stodevx.gitgub.io/StoDevX/course-data/'
+		const baseUrl = 'https://stodevx.github.io/course-data/'
 		const fetchJson = (...args) => fetch(...args).then(r => r.json())
 		fetchJson(`${baseUrl}/index.json`)
 			.then(info => {
