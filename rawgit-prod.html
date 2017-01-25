@@ -12,7 +12,7 @@
 	<script>
 		const baseUrl = 'https://cdn.rawgit.com/StoDevX/course-data/21030278d4a246e63aa5ad246c90fa1e822e3f2f/'
 		const fetchJson = (...args) => fetch(...args).then(r => r.json())
-		fetchJson(`${baseUrl}/index.json`)
+		fetchJson(`${baseUrl}/info.json`)
 			.then(info => {
 				let jsonFiles = info.files
 					.filter(({type}) => type === 'json')
