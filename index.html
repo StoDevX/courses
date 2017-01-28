@@ -12,7 +12,7 @@
 	<script>
 		const baseUrl = 'https://stodevx.github.io/course-data/'
 		const fetchJson = (...args) => fetch(...args).then(r => r.json())
-		fetchJson(`${baseUrl}/index.json`)
+		fetchJson(`${baseUrl}/info.json`)
 			.then(info => {
 				let jsonFiles = info.files
 					.filter(({type}) => type === 'json')
