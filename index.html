@@ -37,7 +37,7 @@
 				itemClone.className = 'course'
 				let els = courses.map(c => {
 					let item = itemClone.cloneNode()
-					item.textContent = `${c.departments.join('/')} ${c.number}`
+					item.textContent = `${c.department} ${c.number}`
 					return item
 				})
 				console.timeEnd('elemented')
