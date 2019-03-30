@@ -10,7 +10,7 @@
 <body>
 	<div class='course-container'></div>
 	<script>
-		const baseUrl = 'https://stodevx.github.io/course-data/'
+		const baseUrl = 'https://stolaf.dev/course-data'
 		const fetchJson = (...args) => fetch(...args).then(r => r.json())
 		fetchJson(`${baseUrl}/info.json`)
 			.then(info => {
@@ -37,7 +37,7 @@
 				itemClone.className = 'course'
 				let els = courses.map(c => {
 					let item = itemClone.cloneNode()
-					item.textContent = `${c.departments.join('/')} ${c.number}`
+					item.textContent = `${c.department} ${c.number}`
 					return item
 				})
 				console.timeEnd('elemented')
