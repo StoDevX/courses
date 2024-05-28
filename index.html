@@ -31,7 +31,6 @@ textarea#sql-editor {
   line-height: 1.4;
 }
 </style>
-<script src='./urls.js'></script>
 </head>
 <body>
 
@@ -115,7 +114,43 @@ const metadataUrl = fixUrl(urlParams.get('metadata'));
 const sqlUrls = urlParams.getAll('sql').map(fixUrl);
 const jsonUrls = urlParams.getAll('json').map(fixUrl);
 const parquetUrls = urlParams.getAll('parquet').map(fixUrl);
-const csvUrls = urlParams.getAll('csv').map(fixUrl);
+/**
+ * St. Olaf course data: patch data urls
+ */
+ const getCourseDataUrls = () => {
+    const startYear = 1994
+    const currentYear = new Date().getFullYear()
+
+    const termsUrl = 'https://stolaf.dev/course-data/terms'
+
+    const urls = Array.from({ length: currentYear - startYear + 1 }, (_, i) => startYear + i)
+        .flatMap(year => Array.from({ length: 5 }, (_, term) => `${termsUrl}/${year}${term + 1}.csv`))
+
+    // semesters without data cause datasette to panic so we remove this year's active summer terms to be careful
+    const truncatedUrls = urls.slice(0, -2)
+    return truncatedUrls
+}
+
+/**
+ * St. Olaf course data: Patch url query parameter defaults
+ *
+ * Since .db loading is supported in webworker.js via shouldLoadDefaults
+ * I tried to call `sources.push(['csv', getCourseDataUrls()])`
+ * in webworker > startDatasette > shouldLoadDefaults
+ * and the data seemed to load but the UI never showed it.
+ * 
+ * Instead, we can patch the query parameters, which is how I'm reading
+ * Simon designed this to work from the start in the documentation
+ * https://github.com/simonw/datasette-lite/#loading-csv-data
+ */ 
+const csvUrlParams = urlParams.getAll('csv').map(fixUrl)
+let csvUrls = []
+if (csvUrlParams.length) {
+	csvUrls = csvUrlParams
+} else if (!jsonUrls.length && !sqlUrls.length && !parquetUrls.length) {
+	csvUrls = getCourseDataUrls()
+}
+
 const installUrls = urlParams.getAll('install')
 const ref = urlParams.get('ref');
 
