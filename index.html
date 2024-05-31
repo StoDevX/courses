@@ -118,8 +118,8 @@ const parquetUrls = urlParams.getAll('parquet').map(fixUrl);
  * St. Olaf course data: patch data urls
  */
  const getCourseDataUrls = () => {
-    const startYear = 1994
     const currentYear = new Date().getFullYear()
+    const startYear = currentYear - 4
 
     const termsUrl = 'https://stolaf.dev/course-data/terms'
 
