@@ -1,5 +1,5 @@
 // https://github.com/simonw/datasette-lite
-importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js");
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js");
 
 function log(line) {
   console.log({line})
@@ -44,7 +44,7 @@ async function startDatasette(settings) {
     toLoad.push(["content.db", "https://datasette.io/content.db"]);
   }
   self.pyodide = await loadPyodide({
-    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/",
+    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/",
     fullStdLib: true
   });
   await pyodide.loadPackage('micropip', {messageCallback: log});
@@ -72,6 +72,9 @@ async function startDatasette(settings) {
     # Workaround for Requested 'h11<0.13,>=0.11', but h11==0.13.0 is already installed
     await micropip.install("h11==0.12.0")
     await micropip.install("httpx==0.23")
+    await micropip.install("python-multipart==0.0.15")
+    # To avoid possible 'from typing_extensions import deprecated' error:
+    await micropip.install('typing-extensions>=4.12.2')
     await micropip.install("${datasetteToInstall}", pre=${pre})
     # Install any extra ?install= dependencies
     install_urls = ${JSON.stringify(settings.installUrls)}
