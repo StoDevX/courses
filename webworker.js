@@ -123,17 +123,20 @@ async function startDatasette(settings) {
                 table_names.add(bit)
 
                 if source_type == "csv":
-                    tracker = TypeTracker()
-                    response = await pyfetch(url)
-                    with open("csv.csv", "wb") as fp:
-                        fp.write(await response.bytes())
-                    db[bit].insert_all(
-                        tracker.wrap(rows_from_file(open("csv.csv", "rb"), Format.CSV)[0]),
-                        alter=True
-                    )
-                    db[bit].transform(
-                        types=tracker.types
-                    )
+                  try:
+                      tracker = TypeTracker()
+                      response = await pyfetch(url)
+                      with open("csv.csv", "wb") as fp:
+                          fp.write(await response.bytes())
+                      db[bit].insert_all(
+                          tracker.wrap(rows_from_file(open("csv.csv", "rb"), Format.CSV)[0]),
+                          alter=True
+                      )
+                      db[bit].transform(
+                          types=tracker.types
+                      )
+                  except Exception as error:
+                      print(f"Failed to fetch or process CSV from {url}: {error}")
                 elif source_type == "json":
                     pk = None
                     response = await pyfetch(url)
