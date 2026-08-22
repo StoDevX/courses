@@ -108,53 +108,33 @@ function fixUrl(url) {
 }
 
 const urlParams = new URLSearchParams(location.search);
-const sqliteUrl = fixUrl(urlParams.get('url'));
 const memory = !!urlParams.get('memory');
 const metadataUrl = fixUrl(urlParams.get('metadata'));
+const csvUrls = urlParams.getAll('csv').map(fixUrl);
 const sqlUrls = urlParams.getAll('sql').map(fixUrl);
 const jsonUrls = urlParams.getAll('json').map(fixUrl);
 const parquetUrls = urlParams.getAll('parquet').map(fixUrl);
-/**
- * St. Olaf course data: patch data urls
- */
- const getCourseDataUrls = () => {
-    const currentYear = new Date().getFullYear()
-    const startYear = currentYear - 4
-
-    const termsUrl = 'https://stolaf.dev/course-data/terms'
-
-    const urls = Array.from({ length: currentYear - startYear + 1 }, (_, i) => startYear + i)
-        .flatMap(year => Array.from({ length: 5 }, (_, term) => `${termsUrl}/${year}${term + 1}.csv`))
-
-    // semesters without data cause datasette to panic so we remove this year's active summer terms to be careful
-    const truncatedUrls = urls.slice(0, -2)
-    return truncatedUrls
-}
 
 /**
- * St. Olaf course data: Patch url query parameter defaults
+ * St. Olaf course data: default to the prebuilt course catalog
  *
- * Since .db loading is supported in webworker.js via shouldLoadDefaults
- * I tried to call `sources.push(['csv', getCourseDataUrls()])`
- * in webworker > startDatasette > shouldLoadDefaults
- * and the data seemed to load but the UI never showed it.
- * 
- * Instead, we can patch the query parameters, which is how I'm reading
- * Simon designed this to work from the start in the documentation
- * https://github.com/simonw/datasette-lite/#loading-csv-data
- */ 
-const csvUrlParams = urlParams.getAll('csv').map(fixUrl)
-let csvUrls = []
-if (csvUrlParams.length) {
-	csvUrls = csvUrlParams
-} else if (!jsonUrls.length && !sqlUrls.length && !parquetUrls.length) {
-	csvUrls = getCourseDataUrls()
+ * The catalog ships as a single SQLite database with foreign keys between
+ * sections, instructors, general education requirements and meeting times,
+ * so Datasette can link between them. Loading it directly also avoids
+ * rebuilding those tables from per-term CSVs on every page load.
+ */
+const catalogUrl = 'https://stolaf.dev/course-data/catalog.db';
+
+const sqliteUrlParams = urlParams.getAll('url').map(fixUrl);
+let sqliteUrls = sqliteUrlParams;
+if (!sqliteUrlParams.length && !csvUrls.length && !sqlUrls.length && !jsonUrls.length && !parquetUrls.length && !memory) {
+  sqliteUrls = [catalogUrl];
 }
 
-const installUrls = urlParams.getAll('install')
+const installUrls = urlParams.getAll('install');
 const ref = urlParams.get('ref');
 
-datasetteWorker.postMessage({type: 'startup', ref, sqliteUrl, memory, csvUrls, sqlUrls, jsonUrls, parquetUrls, installUrls, metadataUrl});
+datasetteWorker.postMessage({type: 'startup', ref, sqliteUrls, memory, csvUrls, sqlUrls, jsonUrls, parquetUrls, installUrls, metadataUrl});
 
 let loadingLogs = ["Loading..."];
 

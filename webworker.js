@@ -1,9 +1,34 @@
 // https://github.com/simonw/datasette-lite
-importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js");
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js");
 
 function log(line) {
   console.log({line})
   self.postMessage({type: 'log', line: line});
+}
+
+function databaseFiles(sqliteUrls) {
+  const baseNames = sqliteUrls.map(
+    url => url.split('.db')[0].split('/').slice(-1)[0]
+  );
+  const reservedNames = new Set(baseNames);
+  const usedNames = new Set();
+
+  return sqliteUrls.map((url, index) => {
+    const baseName = baseNames[index];
+    let name = baseName;
+    let suffix = 2;
+    while (usedNames.has(name)) {
+      name = `${baseName}_${suffix}`;
+      suffix += 1;
+      // Do not take the name of another, differently named input file.
+      while (reservedNames.has(name) || usedNames.has(name)) {
+        name = `${baseName}_${suffix}`;
+        suffix += 1;
+      }
+    }
+    usedNames.add(name);
+    return [name, url];
+  });
 }
 
 async function startDatasette(settings) {
@@ -21,9 +46,10 @@ async function startDatasette(settings) {
       datasetteToInstall = `datasette==${settings.ref}`;
     }
   }
-  if (settings.sqliteUrl) {
-    let name = settings.sqliteUrl.split('.db')[0].split('/').slice(-1)[0];
-    toLoad.push([name, settings.sqliteUrl]);
+  console.log({datasetteToInstall});
+  const sqliteUrls = (settings.sqliteUrls || []).filter(Boolean);
+  if (sqliteUrls.length) {
+    toLoad.push(...databaseFiles(sqliteUrls));
     shouldLoadDefaults = false;
   }
   ['csv', 'sql', 'json', 'parquet'].forEach(sourceType => {
@@ -44,7 +70,7 @@ async function startDatasette(settings) {
     toLoad.push(["content.db", "https://datasette.io/content.db"]);
   }
   self.pyodide = await loadPyodide({
-    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/",
+    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/",
     fullStdLib: true
   });
   await pyodide.loadPackage('micropip', {messageCallback: log});
@@ -53,9 +79,21 @@ async function startDatasette(settings) {
   try {
     await self.pyodide.runPythonAsync(`
     # https://github.com/pyodide/pyodide/issues/3880#issuecomment-1560130092
-    import os
+    import os, sys
+    import csv
     os.link = os.symlink
-    # Grab that fixtures.db database
+
+    # Increase CSV field size limit to maximim possible
+    # https://stackoverflow.com/a/15063941
+    field_size_limit = sys.maxsize
+
+    while True:
+        try:
+            csv.field_size_limit(field_size_limit)
+            break
+        except OverflowError:
+            field_size_limit = int(field_size_limit / 10)
+
     import sqlite3
     from pyodide.http import pyfetch
     names = []
@@ -123,20 +161,57 @@ async function startDatasette(settings) {
                 table_names.add(bit)
 
                 if source_type == "csv":
-                  try:
-                      tracker = TypeTracker()
-                      response = await pyfetch(url)
-                      with open("csv.csv", "wb") as fp:
-                          fp.write(await response.bytes())
-                      db[bit].insert_all(
-                          tracker.wrap(rows_from_file(open("csv.csv", "rb"), Format.CSV)[0]),
-                          alter=True
-                      )
-                      db[bit].transform(
-                          types=tracker.types
-                      )
-                  except Exception as error:
-                      print(f"Failed to fetch or process CSV from {url}: {error}")
+                    tracker = TypeTracker()
+                    response = await pyfetch(url)
+                    csv_bytes = await response.bytes()
+                    with open("csv.csv", "wb") as fp:
+                        fp.write(csv_bytes)
+
+                    # Auto-detect CSV delimiter (comma vs semicolon)
+                    # Read first few lines to detect the delimiter
+                    sample_lines = []
+                    lines_iter = iter(csv_bytes.decode('utf-8', errors='ignore').splitlines())
+                    for _ in range(min(5, len(csv_bytes.decode('utf-8', errors='ignore').splitlines()))):
+                        try:
+                            sample_lines.append(next(lines_iter))
+                        except StopIteration:
+                            break
+
+                    # Count semicolons vs commas in the sample
+                    semicolon_count = sum(line.count(';') for line in sample_lines)
+                    comma_count = sum(line.count(',') for line in sample_lines)
+
+                    # Determine the most likely delimiter
+                    if semicolon_count > comma_count and semicolon_count > 0:
+                        # Use semicolon as delimiter
+                        # We need to manually parse CSV with semicolon delimiter
+                        import csv as csv_module
+                        from io import StringIO
+
+                        csv_content = csv_bytes.decode('utf-8', errors='ignore')
+                        csv_reader = csv_module.reader(StringIO(csv_content), delimiter=';')
+                        rows = list(csv_reader)
+
+                        if rows:
+                            # Convert to format expected by sqlite-utils
+                            headers = rows[0]
+                            data_rows = rows[1:]
+                            dict_rows = [dict(zip(headers, row)) for row in data_rows]
+
+                            db[bit].insert_all(
+                                tracker.wrap(dict_rows),
+                                alter=True
+                            )
+                    else:
+                        # Use default comma delimiter
+                        db[bit].insert_all(
+                            tracker.wrap(rows_from_file(open("csv.csv", "rb"), Format.CSV)[0]),
+                            alter=True
+                        )
+
+                    db[bit].transform(
+                        types=tracker.types
+                    )
                 elif source_type == "json":
                     pk = None
                     response = await pyfetch(url)
@@ -155,11 +230,17 @@ async function startDatasette(settings) {
                             value["_key"] = key
                             fixed.append(value)
                         json_data = fixed
-                    elif isinstance(json_data, dict) and any(isinstance(v, list) for v in json_data.values()):
-                        for key, value in json_data.items():
-                            if isinstance(value, list) and value and isinstance(value[0], dict):
-                                json_data = value
-                                break
+                    elif isinstance(json_data, dict):
+                        object_lists = [
+                            value for value in json_data.values()
+                            if (
+                                isinstance(value, list)
+                                and value
+                                and all(isinstance(item, dict) for item in value)
+                            )
+                        ]
+                        if object_lists:
+                            json_data = max(object_lists, key=len)
                     assert isinstance(json_data, list), "JSON data must be a list of objects"
                     db[bit].insert_all(json_data, pk=pk, alter=True)
                 elif source_type == "parquet":
@@ -169,7 +250,7 @@ async function startDatasette(settings) {
                     with open("parquet.parquet", "wb") as fp:
                         fp.write(await response.bytes())
                     df = fastparquet.ParquetFile("parquet.parquet").to_pandas()
-                    df.to_sql(bit, db.conn, if_exists="replace")
+                    db[bit].insert_all(df.to_dict(orient="records"), alter=True)
     from datasette.app import Datasette
     ds = Datasette(names, settings={
         "num_sql_threads": 0,
