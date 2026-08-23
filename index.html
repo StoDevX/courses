@@ -123,7 +123,7 @@ const parquetUrls = urlParams.getAll('parquet').map(fixUrl);
  * so Datasette can link between them. Loading it directly also avoids
  * rebuilding those tables from per-term CSVs on every page load.
  */
-const catalogUrl = 'https://stolaf.dev/course-data/catalog.db';
+const catalogUrl = 'https://stolaf.dev/course-data/catalog-recent.db';
 
 const sqliteUrlParams = urlParams.getAll('url').map(fixUrl);
 let sqliteUrls = sqliteUrlParams;
