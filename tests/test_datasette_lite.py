@@ -55,13 +55,13 @@ def test_initial_load(dslite: Page):
 
 
 def test_default_loads_course_catalog(dslite: Page):
-    assert [el.inner_text() for el in dslite.query_selector_all("h2")] == ["catalog"]
+    assert [el.inner_text() for el in dslite.query_selector_all("h2")] == ["catalog-recent"]
 
 
 def test_catalog_has_expected_tables(dslite: Page):
     h2 = dslite.query_selector("h2")
     h2.query_selector("a").click()
-    expect(dslite).to_have_title("catalog")
+    expect(dslite).to_have_title("catalog-recent")
     table_names = {
         el.inner_text() for el in dslite.query_selector_all("div.db-table h3 a")
     }
@@ -69,7 +69,7 @@ def test_catalog_has_expected_tables(dslite: Page):
 
 
 def test_can_query_section_table(static_server, browser: Browser):
-    page = load_page(browser, "#/catalog?sql=select+count(*)+from+section")
+    page = load_page(browser, "#/catalog-recent?sql=select+count(*)+from+section")
     table = page.query_selector("table.rows-and-columns")
     count = int(table.query_selector("tbody td").inner_text())
     assert count > 0
