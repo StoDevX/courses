@@ -1,6 +1,6 @@
 # courses
 
-**<https://stolaf.dev/courses>**
+**https://lite.datasette.io/?url=https://stolaf.dev/course-data/catalog-recent.db**
 
 Browse the St. Olaf course catalog with [Datasette](https://datasette.io/), running
 entirely in the browser via [datasette-lite](https://github.com/simonw/datasette-lite).
